@@ -4,9 +4,7 @@ import 'package:http/http.dart' as http;
 import 'new_cita_screen.dart';
 
 // Cambia apiBase si la vas a abrir desde otro dispositivo
-cconst String apiBase = "http://172.20.10.5:3000";
-
-
+const String apiBase = "http://192.168.0.30:3000";
 
 class AgendaScreen extends StatefulWidget {
   final String fecha; // "YYYY-MM-DD"

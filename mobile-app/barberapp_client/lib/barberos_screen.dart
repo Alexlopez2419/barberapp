@@ -4,7 +4,8 @@ import 'package:http/http.dart' as http;
 import 'horarios_screen.dart';
 
 // Cambia esta IP si tu API corre en otra
-const String apiBase = "http://172.20.10.5:3000";
+const String apiBase = "http://192.168.0.30:3000";
+
 
 
 class BarberosScreen extends StatefulWidget {

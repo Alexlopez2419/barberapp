@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 // Usa la misma base que agenda_screen.dart
-const String apiBase = "http://172.20.10.5:3000";
+const String apiBase = "http://192.168.0.30:3000";
+
 
 
 

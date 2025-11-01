@@ -1,13 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'servicios_screen.dart';
-import 'login_screen.dart';
 
-// Ajusta tu IP local si cambió
-const String apiBase = "http://172.20.10.5:3000";
+// misma IP que en login
+const String apiBase = "http://192.168.0.30:3000";
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,73 +14,64 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _nombreCtrl = TextEditingController();
-  final _telCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
+  final TextEditingController _nombreCtrl = TextEditingController();
+  final TextEditingController _telCtrl = TextEditingController();
+  final TextEditingController _passCtrl = TextEditingController();
+  final TextEditingController _correoCtrl = TextEditingController();
 
-  bool _loading = false;
+  bool _cargando = false;
   String? _error;
 
-  Future<void> _registrar() async {
-    final nombre = _nombreCtrl.text.trim();
-    final telefono = _telCtrl.text.trim();
-    final password = _passCtrl.text.trim();
-
-    if (nombre.isEmpty || telefono.isEmpty || password.isEmpty) {
-      setState(() => _error = 'Completa todos los campos');
-      return;
-    }
-
+  Future<void> _crearCuenta() async {
     setState(() {
-      _loading = true;
+      _cargando = true;
       _error = null;
     });
 
-    try {
-      final url = Uri.parse('$apiBase/usuarios/register'); // ← AQUÍ iba el ';'
-      final resp = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'nombre': nombre,
-          'telefono': telefono,
-          'password': password,
-        }),
-      );
+    final url = Uri.parse("$apiBase/usuarios/register");
 
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
-        if (data['ok'] == true) {
-          // Opcional: guardamos el teléfono para autocompletar login
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('ultimo_tel', telefono);
+    final resp = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "nombre": _nombreCtrl.text.trim(),
+        "telefono": _telCtrl.text.trim(),
+        "password": _passCtrl.text.trim(),
+        "correo": _correoCtrl.text.trim(),
+      }),
+    );
 
-          if (!mounted) return;
-          // Vuelve al login para iniciar sesión
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (_) => false,
-          );
-        } else {
-          setState(() => _error = data['error']?.toString() ?? 'Error al registrar');
-        }
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      if (data["ok"] == true && data["usuario"] != null) {
+        final usuario = data["usuario"];
+        final int usuarioId = usuario["id"];
+        final String nombreUsuario = usuario["nombre"] ?? "Usuario";
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiciosScreen(
+              usuarioId: usuarioId,
+              nombreUsuario: nombreUsuario,
+            ),
+          ),
+        );
       } else {
-        setState(() => _error = 'Error HTTP ${resp.statusCode}');
+        setState(() {
+          _error = "No se pudo crear la cuenta";
+        });
       }
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    } else {
+      setState(() {
+        _error = "Error de servidor (${resp.statusCode})";
+      });
     }
-  }
 
-  @override
-  void dispose() {
-    _nombreCtrl.dispose();
-    _telCtrl.dispose();
-    _passCtrl.dispose();
-    super.dispose();
+    setState(() {
+      _cargando = false;
+    });
   }
 
   @override
@@ -93,86 +81,93 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: dorado,
-        title: const Text('Crear cuenta', style: TextStyle(color: dorado)),
-        centerTitle: true,
+        title: const Text(
+          'Crear cuenta',
+          style: TextStyle(color: dorado),
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _campo('Nombre', _nombreCtrl, false),
-          const SizedBox(height: 12),
-          _campo('Teléfono', _telCtrl, false, teclado: TextInputType.phone),
-          const SizedBox(height: 12),
-          _campo('Contraseña', _passCtrl, true),
-          const SizedBox(height: 12),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.face_retouching_natural,
+              color: dorado,
+              size: 80,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Registrate para reservar",
+              style: TextStyle(
+                color: dorado,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            _campo("Nombre completo", _nombreCtrl, false),
+            const SizedBox(height: 16),
+
+            _campo("Teléfono", _telCtrl, false,
+                tipo: TextInputType.phone),
+            const SizedBox(height: 16),
+
+            _campo("Correo (opcional)", _correoCtrl, false,
+                tipo: TextInputType.emailAddress),
+            const SizedBox(height: 16),
+
+            _campo("Contraseña", _passCtrl, true),
+            const SizedBox(height: 16),
+
+            if (_error != null)
+              Text(
                 _error!,
                 style: const TextStyle(color: Colors.redAccent),
               ),
-            ),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _loading ? null : _registrar,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: dorado,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+
+            const SizedBox(height: 16),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _cargando ? null : _crearCuenta,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: dorado,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: _cargando
+                    ? const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                      )
+                    : const Text(
+                        "Crear cuenta",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
-              child: _loading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                    )
-                  : const Text('Crear cuenta', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: _loading
-                ? null
-                : () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
-                  },
-            child: const Text('¿Ya tienes cuenta? Inicia sesión',
-                style: TextStyle(color: dorado)),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _campo(String label, TextEditingController ctrl, bool esPassword,
-      {TextInputType teclado = TextInputType.text}) {
-    const dorado = Color(0xFFD4AF37);
+      {TextInputType tipo = TextInputType.text}) {
     return TextField(
       controller: ctrl,
       obscureText: esPassword,
-      keyboardType: teclado,
+      keyboardType: tipo,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: dorado),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: dorado, width: 2),
-          borderRadius: BorderRadius.circular(12),
-        ),
+        labelStyle: const TextStyle(color: Colors.white),
         filled: true,
         fillColor: const Color(0xFF1A1A1A),
+        border: const OutlineInputBorder(),
       ),
     );
   }
